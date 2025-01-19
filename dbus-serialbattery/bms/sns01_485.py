@@ -168,7 +168,6 @@ class Daren485v2(Battery):
 
         return result
 
-
     def get_serial(self, ser):
         """
         Read serial from device by calling the get_mfg_params command,
@@ -190,7 +189,7 @@ class Daren485v2(Battery):
         if response:
             logger.debug(f"response was: {response}")
             payload_start = 13 + 12  # Header + command info
-            payload = response[payload_start: len(response) - 5]
+            payload = response[payload_start : len(response) - 5]
             logger.debug(f"Raw Payload: {payload}")
 
             if len(payload) >= 30:
