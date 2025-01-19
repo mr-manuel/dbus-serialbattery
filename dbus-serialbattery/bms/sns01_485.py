@@ -259,13 +259,13 @@ class Daren485v2(Battery):
         ser.write(req.encode())
         logger.debug("get_realtime_data request sent: {}".format(req))
 
-        sleep(0.5)  # Allow the BMS some time to send a full response
+        sleep(3.0)  # Allow the BMS some time to send a full response
 
         response = self.read_response(ser)
 
         if response:
             payload = response[13 : len(response) - 5]
-            if len(payload) >= 118:
+            if len(payload) >= 152:
                 self.soc = int(payload[2:6], base=16) / 100
                 self.voltage = int(payload[6:10], base=16) / 100
                 self.current = unpack(">h", bytes.fromhex(payload[106:110]))[0] / 100
@@ -282,12 +282,11 @@ class Daren485v2(Battery):
                 self.capacity = int(payload[120:124], base=16) / 100
                 self.capacity_remaining = int(payload[124:128], base=16) / 100
                 self.history.charge_cycles = int(payload[128:132], base=16)
-                fetstatus = int(payload[148:152], base=16)
-
                 voltagestatus = int(payload[132:136], base=16)
                 currentstatus = int(payload[136:140], base=16)
                 temperaturestatus = int(payload[140:144], base=16)
                 warningstatus = int(payload[144:148], base=16)
+                fetstatus = int(payload[148:152], base=16)
 
                 # check bit 2 for TOT_OVV_PROT and bit 0 for cell_OVV_PROT
                 if voltagestatus & (1 << 2) or voltagestatus & (1 << 0):
@@ -554,7 +553,8 @@ class Daren485v2(Battery):
                 if chr == b"\r":
                     break
             except Exception as e:
-                logger.error("Exception during inWaiting(): {}".format(e))
+                # This can happen on this slower board - we assume the next poll will get valid data/complete message
+                logger.debug("Exception during inWaiting(): {}".format(e))
                 pass
 
         try:
