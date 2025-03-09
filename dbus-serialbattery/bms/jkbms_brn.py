@@ -425,6 +425,14 @@ class Jkbms_Brn:
         if "settings" in self.bms_status and "cell_info" in self.bms_status:
             return self.bms_status
         else:
+            logger.info(
+                "get_status(): "
+                + f"model_nbr: {'OK' if 'model_nbr' in self.bms_status else 'None'} - "
+                + f"device_info: {'OK' if 'device_info' in self.bms_status else 'None'} - "
+                + f"settings: {'OK' if 'settings' in self.bms_status else 'None'} - "
+                + f"cell_info: {'OK' if 'cell_info' in self.bms_status else 'None'} - "
+                + f"last_update: {self.bms_status['last_update'] if 'last_update' in self.bms_status else 'None'}"
+            )
             return None
 
     def connect_and_scrape(self):
@@ -432,27 +440,17 @@ class Jkbms_Brn:
 
     # self.bt_thread
     async def asy_connect_and_scrape(self):
-        logger.debug("--> asy_connect_and_scrape(): Connect and scrape on address: " + self.address)
+        logger.info("--> asy_connect_and_scrape(): Connect and scrape on address: " + self.address)
         self.run = True
         while self.run and self.main_thread.is_alive():  # autoreconnect
             client = BleakClient(self.address)
-            logger.debug("--> asy_connect_and_scrape(): btloop")
+            logger.info("--> asy_connect_and_scrape(): btloop")
 
             try:
-                logger.debug("--> asy_connect_and_scrape(): reconnect")
+                logger.info("--> asy_connect_and_scrape(): reconnect")
                 await client.connect()
 
-                # try to get MODEL_NBR_UUID, since not all JKBMS send it
-                try:
-                    self.bms_status["model_nbr"] = (await client.read_gatt_char(MODEL_NBR_UUID)).decode("utf-8")
-                except exc.BleakError:
-                    (
-                        exception_type,
-                        exception_object,
-                        exception_traceback,
-                    ) = sys.exc_info()
-                    logger.debug(f'Error getting UUID "{MODEL_NBR_UUID}": {repr(exception_object)} -> failover')
-                    self.bms_status["model_nbr"] = "JK-BMS-Unknown-Model"
+                # Sometimes settings are send and sometimes not. Did not found yet the issue
 
                 # some JKBMS trow an error
                 # BleakError('Multiple Characteristics with this UUID, refer to your desired
@@ -466,14 +464,29 @@ class Jkbms_Brn:
                         exception_object,
                         exception_traceback,
                     ) = sys.exc_info()
-                    logger.debug(f'Error getting UUID "{CHAR_HANDLE}": {repr(exception_object)} -> failover')
+                    logger.info(f'Error getting UUID "{CHAR_HANDLE}": {repr(exception_object)} -> failover')
                     await client.start_notify(CHAR_HANDLE_FAILOVER, self.ncallback)
+
+                # try to get MODEL_NBR_UUID, since not all JKBMS send it
+                try:
+                    self.bms_status["model_nbr"] = (await client.read_gatt_char(MODEL_NBR_UUID)).decode("utf-8")
+                    logger.info(f'Model number: {self.bms_status["model_nbr"]}')
+                except exc.BleakError:
+                    (
+                        exception_type,
+                        exception_object,
+                        exception_traceback,
+                    ) = sys.exc_info()
+                    logger.info(f'Error getting UUID "{MODEL_NBR_UUID}": {repr(exception_object)} -> failover')
+                    self.bms_status["model_nbr"] = "JK-BMS-Unknown-Model"
 
                 await self.request_bt("device_info", client)
 
                 await self.request_bt("cell_info", client)
+
                 # await self.enable_charging(client)
                 # last_dev_info = time()
+
                 while client.is_connected and self.run and self.main_thread.is_alive():
                     if self.trigger_soc_reset:
                         self.trigger_soc_reset = False
@@ -519,7 +532,9 @@ class Jkbms_Brn:
         logger.info("--> asy_connect_and_scrape(): Exit")
 
     def monitor_scraping(self):
-        while self.should_be_scraping is True:
+        # while self.should_be_scraping is True:
+        while self.should_be_scraping is True and self.main_thread.is_alive():
+            # create new thread and run connect_and_scrape()
             self.bt_thread = threading.Thread(target=self.connect_and_scrape, name="Thread-JKBMS-Connect-and-Scrape")
             self.bt_thread.start()
             logger.debug("scraping thread started -> main thread id: " + str(self.main_thread.ident) + " scraping thread: " + str(self.bt_thread.ident))

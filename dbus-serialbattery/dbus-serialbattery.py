@@ -14,6 +14,7 @@ from gi.repository import GLib as gobject
 from battery import Battery
 from dbushelper import DbusHelper
 from utils import (
+    BATTERY_ADDRESSES,
     BMS_TYPE,
     bytearray_to_string,
     DRIVER_VERSION,
@@ -22,7 +23,6 @@ from utils import (
     EXTERNAL_SENSOR_DBUS_PATH_CURRENT,
     EXTERNAL_SENSOR_DBUS_PATH_SOC,
     logger,
-    BATTERY_ADDRESSES,
     POLL_INTERVAL,
     validate_config_values,
 )
@@ -139,7 +139,8 @@ def main():
     def poll_battery(loop) -> bool:
         """
         Polls the battery for data and updates it on the dbus.
-        Calls `publish_battery` from DbusHelper for each battery instance.
+        Calls `publish_battery` from DbusHelper for each battery instance which
+        then calls `refresh_data` from the battery instance to update the data.
 
         :param loop: The main event loop
         :return: Always returns True

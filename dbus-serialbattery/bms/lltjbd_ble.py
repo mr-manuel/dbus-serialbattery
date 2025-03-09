@@ -13,7 +13,7 @@ import re
 from asyncio import CancelledError
 from time import sleep
 from typing import Union, Optional
-from utils import logger
+from utils import logger, BLUETOOTH_FORCE_RESET_BLE_STACK
 from bleak import BleakClient, BleakScanner, BLEDevice
 from bleak.exc import BleakDBusError
 from bms.lltjbd import LltJbdProtection, LltJbd
@@ -260,6 +260,9 @@ class LltJbd_Ble(LltJbd):
             return False
 
     def reset_bluetooth(self):
+        if not BLUETOOTH_FORCE_RESET_BLE_STACK:
+            return
+
         logger.error("Reset of system Bluetooth daemon triggered")
         self.bt_loop = False
 
